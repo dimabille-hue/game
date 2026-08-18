@@ -170,8 +170,13 @@ class SpaceRenderer:
     def draw_board(self, game, now, selected_tile):
         pygame.draw.rect(self.screen, (8, 15, 31), (BOARD_X - 8, BOARD_Y - 8, BOARD_WIDTH + 10, BOARD_HEIGHT + 10), border_radius=18)
         for x, y, phase in DUST:
-            alpha = int(40 + 50 * math.sin(now * 2 + phase * 6.28))
-            pygame.draw.circle(self.screen, (80, 190, 210, alpha), (x, y), 1)
+            pulse = 0.45 + 0.55 * math.sin(now * 2 + phase * 6.28)
+            color = (
+                int(36 + 44 * pulse),
+                int(96 + 94 * pulse),
+                int(120 + 90 * pulse),
+            )
+            pygame.draw.circle(self.screen, color, (x, y), 1)
         for y in range(BOARD_SIZE):
             for x in range(BOARD_SIZE):
                 self.draw_tile(game.board.get(x, y), x, y, now, selected_tile)
