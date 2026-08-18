@@ -1,10 +1,9 @@
 import pygame
 
-from config import FPS, SCREEN_HEIGHT, SCREEN_WIDTH, TILE_SIZE
+from config import FPS, SCREEN_HEIGHT, SCREEN_WIDTH
 from game import Game
-from ui.geometry import mouse_to_tile
+from ui.geometry import mouse_to_tile, tile_rect
 from ui.renderer import SpaceRenderer
-from ui.theme import BOARD_X
 
 pygame.init()
 
@@ -57,11 +56,12 @@ def open_action_menu(x, y):
     width = 190
     row_height = 42
     height = len(actions) * row_height + 12
-    px = BOARD_X + x * TILE_SIZE + TILE_SIZE
-    py = 80 + y * TILE_SIZE
+    target_rect = tile_rect(x, y)
+    px = target_rect.right + 8
+    py = target_rect.y
 
     if px + width > SCREEN_WIDTH:
-        px = BOARD_X + x * TILE_SIZE - width
+        px = target_rect.left - width - 8
     if py + height > SCREEN_HEIGHT:
         py = SCREEN_HEIGHT - height - 10
 

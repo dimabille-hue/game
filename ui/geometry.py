@@ -1,33 +1,52 @@
+import math
 import pygame
 
-from config import TILE_SIZE, BOARD_SIZE
-from ui.theme import BOARD_X, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT
+from config import BOARD_SIZE
+from ui.theme import BOARD_X, BOARD_Y, HEX_RADIUS, HEX_ROW_OFFSET, HEX_X_STEP, HEX_Y_STEP
 
 
-def tile_rect(x, y):
-    return pygame.Rect(
-        BOARD_X + x * TILE_SIZE + 3,
-        BOARD_Y + y * TILE_SIZE + 3,
-        TILE_SIZE - 7,
-        TILE_SIZE - 7,
-    )
+def hex_points(cx, cy, radius=HEX_RADIUS):
+    return [
+        (
+            cx + int(math.cos(math.radians(60 * index + 30)) * radius),
+            cy + int(math.sin(math.radians(60 * index + 30)) * radius),
+        )
+        for index in range(6)
+    ]
 
 
 def tile_center(x, y):
     return (
-        BOARD_X + x * TILE_SIZE + TILE_SIZE // 2,
-        BOARD_Y + y * TILE_SIZE + TILE_SIZE // 2,
+        BOARD_X + HEX_RADIUS + x * HEX_X_STEP + (y % 2) * HEX_ROW_OFFSET,
+        BOARD_Y + HEX_RADIUS + y * HEX_Y_STEP,
     )
 
 
-def mouse_to_tile(position):
-    mx, my = position
-    if not (BOARD_X <= mx < BOARD_X + BOARD_WIDTH and BOARD_Y <= my < BOARD_Y + BOARD_HEIGHT):
-        return None
+def tile_rect(x, y):
+    cx, cy = tile_center(x, y)
+    return pygame.Rect(cx - HEX_RADIUS, cy - HEX_RADIUS, HEX_RADIUS * 2, HEX_RADIUS * 2)
 
-    x = (mx - BOARD_X) // TILE_SIZE
-    y = (my - BOARD_Y) // TILE_SIZE
-    if 0 <= x < BOARD_SIZE and 0 <= y < BOARD_SIZE:
-        return x, y
+
+def point_in_polygon(point, polygon):
+    px, py = point
+    inside = False
+    previous_x, previous_y = polygon[-1]
+
+    for current_x, current_y in polygon:
+        crosses_y = (current_y > py) != (previous_y > py)
+        if crosses_y:
+            slope_x = (previous_x - current_x) * (py - current_y) / (previous_y - current_y) + current_x
+            if px < slope_x:
+                inside = not inside
+        previous_x, previous_y = current_x, current_y
+
+    return inside
+
+
+def mouse_to_tile(position):
+    for y in range(BOARD_SIZE):
+        for x in range(BOARD_SIZE):
+            if point_in_polygon(position, hex_points(*tile_center(x, y))):
+                return x, y
 
     return None

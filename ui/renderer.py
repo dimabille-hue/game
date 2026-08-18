@@ -3,7 +3,7 @@ import math
 import pygame
 
 from config import SCREEN_WIDTH, SCREEN_HEIGHT, BOARD_SIZE
-from ui.geometry import tile_center, tile_rect
+from ui.geometry import hex_points, tile_center, tile_rect
 from ui.primitives import DrawPrimitives
 from ui.theme import (
     BOARD_X,
@@ -114,22 +114,13 @@ class SpaceRenderer:
         pygame.draw.line(self.screen, color, (cx - 16, cy), (cx + 16, cy), 2)
         pygame.draw.circle(self.screen, PALETTE["white"], (cx, cy), 4)
 
-    def hex_points(self, cx, cy, radius=36):
-        return [
-            (
-                cx + int(math.cos(math.radians(60 * index + 30)) * radius),
-                cy + int(math.sin(math.radians(60 * index + 30)) * radius),
-            )
-            for index in range(6)
-        ]
-
     def draw_hex_cell(self, center, color, border, selected=False):
-        points = self.hex_points(*center)
+        points = hex_points(*center)
         shadow = [(x + 4, y + 6) for x, y in points]
         pygame.draw.polygon(self.screen, (0, 0, 0), shadow)
         pygame.draw.polygon(self.screen, color, points)
         pygame.draw.polygon(self.screen, border, points, 2 if selected else 1)
-        inner = self.hex_points(center[0], center[1], 28)
+        inner = hex_points(center[0], center[1], 29)
         pygame.draw.polygon(self.screen, (90, 150, 210), inner, 1)
         if selected:
             self.ui.glow(center, PALETTE["cyan"], 52, 70)
@@ -170,7 +161,7 @@ class SpaceRenderer:
                 continue
             rect = tile_rect(px + dx, py + dy)
             color = PALETTE["green"] if game.player.move_available(tile.movement_cost) else PALETTE["red"]
-            pygame.draw.polygon(self.screen, color, self.hex_points(*rect.center, 30), 2)
+            pygame.draw.polygon(self.screen, color, hex_points(*rect.center, 31), 2)
 
     def draw_ship(self, cx, cy, color, enemy=False, now=0):
         direction = -1 if enemy else 1
@@ -192,17 +183,18 @@ class SpaceRenderer:
         self.ui.text("NAV-GRID 7×7", frame.right - 112, frame.y + 10, "small", PALETTE["muted"])
 
         for index in range(BOARD_SIZE):
-            x = BOARD_X + index * ((BOARD_WIDTH) // BOARD_SIZE) + 34
-            y = BOARD_Y + index * ((BOARD_HEIGHT) // BOARD_SIZE) + 34
-            self.ui.centered_text(str(index + 1), (x, frame.y + 25), "small", PALETTE["muted"])
-            self.ui.centered_text(chr(65 + index), (frame.x + 13, y), "small", PALETTE["muted"])
+            top_x, _ = tile_center(index, 0)
+            _, side_y = tile_center(0, index)
+            self.ui.centered_text(str(index + 1), (top_x, frame.y + 25), "small", PALETTE["muted"])
+            self.ui.centered_text(chr(65 + index), (frame.x + 13, side_y), "small", PALETTE["muted"])
 
-        for offset in range(0, BOARD_WIDTH + 1, 40):
-            x = BOARD_X + offset
-            pygame.draw.line(self.screen, (15, 35, 61), (x, BOARD_Y), (x, BOARD_Y + BOARD_HEIGHT), 1)
-        for offset in range(0, BOARD_HEIGHT + 1, 40):
-            y = BOARD_Y + offset
-            pygame.draw.line(self.screen, (15, 35, 61), (BOARD_X, y), (BOARD_X + BOARD_WIDTH, y), 1)
+        for y in range(BOARD_SIZE):
+            for x in range(BOARD_SIZE):
+                cx, cy = tile_center(x, y)
+                for dx, dy in ((1, 0), (0, 1)):
+                    nx, ny = x + dx, y + dy
+                    if nx < BOARD_SIZE and ny < BOARD_SIZE:
+                        pygame.draw.line(self.screen, (15, 35, 61), (cx, cy), tile_center(nx, ny), 1)
 
         sweep_x = BOARD_X + int((math.sin(now * 0.7) * 0.5 + 0.5) * BOARD_WIDTH)
         pygame.draw.line(self.screen, (36, 205, 255), (sweep_x, BOARD_Y), (sweep_x, BOARD_Y + BOARD_HEIGHT), 1)
