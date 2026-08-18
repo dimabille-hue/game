@@ -167,8 +167,30 @@ class SpaceRenderer:
         pygame.draw.polygon(self.screen, PALETTE["white"], [(cx + direction * 7, cy - 5), (cx + direction * 14, cy), (cx + direction * 7, cy + 5)])
         pygame.draw.line(self.screen, PALETTE["gold"], (cx - direction * 16, cy), (cx - direction * (16 + flame), cy), 4)
 
+    def draw_board_frame(self, now):
+        frame = pygame.Rect(BOARD_X - 18, BOARD_Y - 34, BOARD_WIDTH + 36, BOARD_HEIGHT + 52)
+        self.ui.panel(frame, 20, PALETTE["cyan"], (7, 14, 30, 230))
+        self.ui.text("SECTOR MAP", frame.x + 18, frame.y + 10, "small", PALETTE["cyan"])
+        self.ui.text("NAV-GRID 7×7", frame.right - 112, frame.y + 10, "small", PALETTE["muted"])
+
+        for index in range(BOARD_SIZE):
+            x = BOARD_X + index * ((BOARD_WIDTH) // BOARD_SIZE) + 34
+            y = BOARD_Y + index * ((BOARD_HEIGHT) // BOARD_SIZE) + 34
+            self.ui.centered_text(str(index + 1), (x, frame.y + 25), "small", PALETTE["muted"])
+            self.ui.centered_text(chr(65 + index), (frame.x + 13, y), "small", PALETTE["muted"])
+
+        for offset in range(0, BOARD_WIDTH + 1, 40):
+            x = BOARD_X + offset
+            pygame.draw.line(self.screen, (15, 35, 61), (x, BOARD_Y), (x, BOARD_Y + BOARD_HEIGHT), 1)
+        for offset in range(0, BOARD_HEIGHT + 1, 40):
+            y = BOARD_Y + offset
+            pygame.draw.line(self.screen, (15, 35, 61), (BOARD_X, y), (BOARD_X + BOARD_WIDTH, y), 1)
+
+        sweep_x = BOARD_X + int((math.sin(now * 0.7) * 0.5 + 0.5) * BOARD_WIDTH)
+        pygame.draw.line(self.screen, (36, 205, 255), (sweep_x, BOARD_Y), (sweep_x, BOARD_Y + BOARD_HEIGHT), 1)
+
     def draw_board(self, game, now, selected_tile):
-        pygame.draw.rect(self.screen, (8, 15, 31), (BOARD_X - 8, BOARD_Y - 8, BOARD_WIDTH + 10, BOARD_HEIGHT + 10), border_radius=18)
+        self.draw_board_frame(now)
         for x, y, phase in DUST:
             pulse = 0.45 + 0.55 * math.sin(now * 2 + phase * 6.28)
             color = (
@@ -186,35 +208,60 @@ class SpaceRenderer:
 
     def stat_chip(self, text, x, color):
         rect = pygame.Rect(x, 20, 112, 34)
-        pygame.draw.rect(self.screen, (12, 22, 42), rect, border_radius=17)
+        self.ui.translucent_rect(rect, (12, 22, 42, 230), 17)
         pygame.draw.rect(self.screen, color, rect, 1, border_radius=17)
         self.ui.centered_text(text, rect.center, "small", PALETTE["text"])
 
     def draw_header(self, game, now):
-        self.ui.text("ПОСЛЕДНИЙ СЕКТОР", 30, 18, "title", PALETTE["white"])
-        pygame.draw.line(self.screen, (37, 215, 255), (30, 58), (295 + int(math.sin(now) * 15), 58), 2)
+        header = pygame.Rect(18, 12, SCREEN_WIDTH - 36, 55)
+        self.ui.panel(header, 18, PALETTE["cyan"], (7, 13, 28, 220))
+        self.ui.text("ПОСЛЕДНИЙ СЕКТОР", 34, 24, "title", PALETTE["white"])
+        pygame.draw.line(self.screen, (37, 215, 255), (34, 58), (292 + int(math.sin(now) * 15), 58), 2)
         seconds = game.time_left()
-        self.stat_chip(f"⏱ {seconds // 60:02d}:{seconds % 60:02d}", 322, PALETTE["gold"])
-        self.stat_chip(f"HP {game.player.hp}/3", 444, PALETTE["red"])
-        self.stat_chip(f"🛡 {game.player.shield}", 566, PALETTE["cyan"])
-        self.stat_chip(f"Fuel {game.player.fuel}/10", 688, PALETTE["green"])
-        self.stat_chip(f"Score {game.player.score}", 810, PALETTE["purple"])
+        self.stat_chip(f"⏱ {seconds // 60:02d}:{seconds % 60:02d}", 318, PALETTE["gold"])
+        self.ui.progress_bar(pygame.Rect(446, 22, 112, 16), game.player.hp, game.player.max_hp, PALETTE["red"], f"HP {game.player.hp}/3")
+        self.ui.progress_bar(pygame.Rect(446, 42, 112, 14), game.player.shield, 1, PALETTE["cyan"], f"SHIELD {game.player.shield}")
+        self.ui.progress_bar(pygame.Rect(575, 22, 150, 16), game.player.fuel, 10, PALETTE["green"], f"FUEL {game.player.fuel}/10")
+        self.ui.progress_bar(pygame.Rect(575, 42, 150, 14), game.player.moves, 3, PALETTE["gold"], f"MOVE {game.player.moves}/3")
+        self.stat_chip(f"Score {game.player.score}", 746, PALETTE["purple"])
 
     def draw_sidebar(self, game):
         panel_rect = pygame.Rect(600, 82, 350, 548)
-        self.ui.panel(panel_rect)
-        self.ui.text("ГРУЗ", 622, 104, "big")
+        self.ui.panel(panel_rect, 20, PALETTE["purple"], (8, 14, 29, 232))
+        self.ui.text("SHIP STATUS", 622, 102, "big", PALETTE["white"])
+        self.ui.text("cargo manifest / tactical controls", 623, 130, "small", PALETTE["muted"])
+
+        cargo_rect = pygame.Rect(622, 160, 306, 156)
+        self.ui.panel(cargo_rect, 14, PALETTE["gold"], (12, 20, 38, 225))
+        self.ui.text("ГРУЗ", cargo_rect.x + 14, cargo_rect.y + 12, "normal", PALETTE["gold"])
         if game.player.cargo:
             for i, item in enumerate(game.player.cargo):
-                self.ui.text(f"◆ {item.name}: {item.value}", 625, 150 + i * 28, "small", PALETTE["gold"])
+                item_rect = pygame.Rect(cargo_rect.x + 14, cargo_rect.y + 42 + i * 31, cargo_rect.width - 28, 25)
+                self.ui.translucent_rect(item_rect, (30, 39, 58, 230), 8)
+                self.ui.text(f"◆ {item.name}", item_rect.x + 10, item_rect.y + 6, "small", PALETTE["white"])
+                self.ui.text(str(item.value), item_rect.right - 58, item_rect.y + 6, "small", PALETTE["gold"])
         else:
-            self.ui.text("Трюм пуст", 625, 150, "small", PALETTE["muted"])
-        self.ui.text(f"Слоты: {game.player.cargo_slots()}/3", 625, 254)
-        self.ui.text(f"Движение: {game.player.moves}", 625, 286)
-        self.ui.text("УПРАВЛЕНИЕ", 622, 342, "big")
-        controls = ["ЛКМ — движение", "ПКМ — действия", "WASD / ЦФЫВ", "SPACE — конец хода", "E / У — сканер", "R / К — ремонт", "F / А — атака", "G / П — ограбление", "N / Т — новая игра"]
-        for i, text in enumerate(controls):
-            self.ui.text(text, 625, 390 + i * 24, "small", PALETTE["muted"])
+            self.ui.centered_text("Трюм пуст", cargo_rect.center, "normal", PALETTE["muted"])
+        self.ui.progress_bar(pygame.Rect(cargo_rect.x + 14, cargo_rect.bottom - 24, cargo_rect.width - 28, 14), game.player.cargo_slots(), 3, PALETTE["gold"], f"SLOTS {game.player.cargo_slots()}/3")
+
+        controls_rect = pygame.Rect(622, 336, 306, 268)
+        self.ui.panel(controls_rect, 14, PALETTE["cyan"], (12, 20, 38, 225))
+        self.ui.text("КОМАНДЫ", controls_rect.x + 14, controls_rect.y + 12, "normal", PALETTE["cyan"])
+        controls = [
+            ("ЛКМ", "движение"),
+            ("ПКМ", "действия"),
+            ("WASD", "курс корабля"),
+            ("SPACE", "конец хода"),
+            ("E", "сканер"),
+            ("R", "ремонт"),
+            ("F", "атака"),
+            ("G", "ограбление"),
+            ("N", "новая игра"),
+        ]
+        for i, (key, label) in enumerate(controls):
+            y = controls_rect.y + 46 + i * 23
+            self.ui.button(pygame.Rect(controls_rect.x + 14, y, 74, 19), key, PALETTE["cyan"], i < 2)
+            self.ui.text(label, controls_rect.x + 102, y + 4, "small", PALETTE["muted"])
 
     def draw_log(self, game):
         log_rect = pygame.Rect(30, 645, 560, 105)
