@@ -29,7 +29,7 @@ class SpaceRenderer:
         self.draw_background(now)
         self.draw_header(game, now)
         self.draw_board(game, now, selected_tile)
-        self.draw_sidebar(game)
+        self.draw_sidebar(game, now)
         self.draw_log(game)
         self.draw_action_menu(action_menu)
         self.draw_game_over(game)
@@ -114,21 +114,39 @@ class SpaceRenderer:
         pygame.draw.line(self.screen, color, (cx - 16, cy), (cx + 16, cy), 2)
         pygame.draw.circle(self.screen, PALETTE["white"], (cx, cy), 4)
 
+    def hex_points(self, cx, cy, radius=36):
+        return [
+            (
+                cx + int(math.cos(math.radians(60 * index + 30)) * radius),
+                cy + int(math.sin(math.radians(60 * index + 30)) * radius),
+            )
+            for index in range(6)
+        ]
+
+    def draw_hex_cell(self, center, color, border, selected=False):
+        points = self.hex_points(*center)
+        shadow = [(x + 4, y + 6) for x, y in points]
+        pygame.draw.polygon(self.screen, (0, 0, 0), shadow)
+        pygame.draw.polygon(self.screen, color, points)
+        pygame.draw.polygon(self.screen, border, points, 2 if selected else 1)
+        inner = self.hex_points(center[0], center[1], 28)
+        pygame.draw.polygon(self.screen, (90, 150, 210), inner, 1)
+        if selected:
+            self.ui.glow(center, PALETTE["cyan"], 52, 70)
+            pygame.draw.polygon(self.screen, PALETTE["cyan"], points, 3)
+
     def draw_tile(self, tile, x, y, now, selected_tile):
         rect = tile_rect(x, y)
+        center = rect.center
         base = (13, 22, 42) if not tile.revealed else TILE_COLORS.get(tile.kind, TILE_COLORS["empty"])
-        pygame.draw.rect(self.screen, base, rect, border_radius=12)
-        pygame.draw.rect(self.screen, PALETTE["grid"], rect, 1, border_radius=12)
-
-        if selected_tile == (x, y):
-            self.ui.glow(rect.center, PALETTE["cyan"], 45, 45)
-            pygame.draw.rect(self.screen, PALETTE["cyan"], rect, 3, border_radius=12)
+        border = PALETTE["cyan"] if tile.revealed else (49, 72, 112)
+        self.draw_hex_cell(center, base, border, selected_tile == (x, y))
 
         if not tile.revealed:
-            self.ui.centered_text("?", rect.center, "big", PALETTE["muted"])
+            self.ui.centered_text("?", center, "big", PALETTE["muted"])
             return
 
-        cx, cy = tile_center(x, y)
+        cx, cy = center
         painters = {
             "planet": lambda: self.draw_planet(cx, cy, now),
             "station": lambda: self.draw_station(cx, cy, now),
@@ -152,7 +170,7 @@ class SpaceRenderer:
                 continue
             rect = tile_rect(px + dx, py + dy)
             color = PALETTE["green"] if game.player.move_available(tile.movement_cost) else PALETTE["red"]
-            pygame.draw.rect(self.screen, color, rect.inflate(-14, -14), 1, border_radius=8)
+            pygame.draw.polygon(self.screen, color, self.hex_points(*rect.center, 30), 2)
 
     def draw_ship(self, cx, cy, color, enemy=False, now=0):
         direction = -1 if enemy else 1
@@ -225,13 +243,23 @@ class SpaceRenderer:
         self.ui.progress_bar(pygame.Rect(575, 42, 150, 14), game.player.moves, 3, PALETTE["gold"], f"MOVE {game.player.moves}/3")
         self.stat_chip(f"Score {game.player.score}", 746, PALETTE["purple"])
 
-    def draw_sidebar(self, game):
+    def draw_ship_display(self, rect, game, now):
+        self.ui.panel(rect, 16, PALETTE["cyan"], (10, 18, 36, 230))
+        self.ui.text("HANGAR", rect.x + 16, rect.y + 12, "big", PALETTE["white"])
+        self.ui.text("Explorer class", rect.x + 18, rect.y + 42, "small", PALETTE["cyan"])
+        pad = pygame.Rect(rect.x + 34, rect.y + 74, rect.width - 68, 16)
+        pygame.draw.ellipse(self.screen, (97, 235, 255), pad)
+        self.ui.glow(pad.center, PALETTE["cyan"], 48, 52)
+        self.draw_ship(rect.centerx, rect.y + 70, PALETTE["cyan"], now=now)
+        self.ui.progress_bar(pygame.Rect(rect.x + 18, rect.bottom - 42, rect.width - 36, 14), game.player.hp, game.player.max_hp, PALETTE["red"], f"ARMOR {game.player.hp}/{game.player.max_hp}")
+        self.ui.progress_bar(pygame.Rect(rect.x + 18, rect.bottom - 22, rect.width - 36, 14), game.player.fuel, 10, PALETTE["green"], f"FUEL {game.player.fuel}/10")
+
+    def draw_sidebar(self, game, now=0):
         panel_rect = pygame.Rect(600, 82, 350, 548)
         self.ui.panel(panel_rect, 20, PALETTE["purple"], (8, 14, 29, 232))
-        self.ui.text("SHIP STATUS", 622, 102, "big", PALETTE["white"])
-        self.ui.text("cargo manifest / tactical controls", 623, 130, "small", PALETTE["muted"])
+        self.draw_ship_display(pygame.Rect(622, 102, 306, 150), game, now)
 
-        cargo_rect = pygame.Rect(622, 160, 306, 156)
+        cargo_rect = pygame.Rect(622, 270, 306, 130)
         self.ui.panel(cargo_rect, 14, PALETTE["gold"], (12, 20, 38, 225))
         self.ui.text("ГРУЗ", cargo_rect.x + 14, cargo_rect.y + 12, "normal", PALETTE["gold"])
         if game.player.cargo:
@@ -244,7 +272,7 @@ class SpaceRenderer:
             self.ui.centered_text("Трюм пуст", cargo_rect.center, "normal", PALETTE["muted"])
         self.ui.progress_bar(pygame.Rect(cargo_rect.x + 14, cargo_rect.bottom - 24, cargo_rect.width - 28, 14), game.player.cargo_slots(), 3, PALETTE["gold"], f"SLOTS {game.player.cargo_slots()}/3")
 
-        controls_rect = pygame.Rect(622, 336, 306, 268)
+        controls_rect = pygame.Rect(622, 416, 306, 188)
         self.ui.panel(controls_rect, 14, PALETTE["cyan"], (12, 20, 38, 225))
         self.ui.text("КОМАНДЫ", controls_rect.x + 14, controls_rect.y + 12, "normal", PALETTE["cyan"])
         controls = [
@@ -259,9 +287,9 @@ class SpaceRenderer:
             ("N", "новая игра"),
         ]
         for i, (key, label) in enumerate(controls):
-            y = controls_rect.y + 46 + i * 23
-            self.ui.button(pygame.Rect(controls_rect.x + 14, y, 74, 19), key, PALETTE["cyan"], i < 2)
-            self.ui.text(label, controls_rect.x + 102, y + 4, "small", PALETTE["muted"])
+            y = controls_rect.y + 42 + i * 16
+            self.ui.button(pygame.Rect(controls_rect.x + 14, y, 65, 14), key, PALETTE["cyan"], i < 2)
+            self.ui.text(label, controls_rect.x + 94, y + 1, "small", PALETTE["muted"])
 
     def draw_log(self, game):
         log_rect = pygame.Rect(30, 645, 560, 105)

@@ -62,4 +62,4 @@ class DrawPrimitives:
         fill = (28, 48, 78, 235) if active else (18, 30, 52, 220)
         self.translucent_rect(rect, fill, 9)
         pygame.draw.rect(self.screen, color, rect, 1 if not active else 2, border_radius=9)
-        self.text(title, rect.x + 12, rect.y + 9, "small", PALETTE["white"])
+        self.centered_text(title, rect.center, "small", PALETTE["white"])
