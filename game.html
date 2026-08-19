@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Последний сектор — HTML prototype</title>
+  <style>
+    :root {
+      --bg: #050816;
+      --panel: rgba(9, 18, 38, 0.82);
+      --line: rgba(94, 210, 255, 0.45);
+      --cyan: #55ddff;
+      --gold: #ffc84d;
+      --green: #68f0a8;
+      --red: #ff5574;
+      --muted: #8ea1c4;
+      --text: #edf6ff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      overflow: hidden;
+      color: var(--text);
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+      background:
+        radial-gradient(circle at 22% 20%, rgba(70, 140, 255, .25), transparent 28%),
+        radial-gradient(circle at 72% 36%, rgba(175, 88, 255, .22), transparent 26%),
+        radial-gradient(circle at 48% 76%, rgba(37, 220, 205, .14), transparent 30%),
+        #030611;
+    }
+
+    .stars,
+    .stars::before,
+    .stars::after {
+      position: fixed;
+      inset: 0;
+      content: "";
+      pointer-events: none;
+      background-image:
+        radial-gradient(circle, rgba(255,255,255,.75) 0 1px, transparent 1.7px),
+        radial-gradient(circle, rgba(90,210,255,.6) 0 1px, transparent 1.7px);
+      background-position: 0 0, 35px 55px;
+      background-size: 115px 95px, 160px 130px;
+      animation: drift 18s linear infinite;
+    }
+
+    .stars::before { opacity: .45; animation-duration: 28s; }
+    .stars::after { opacity: .3; animation-duration: 42s; }
+
+    @keyframes drift {
+      from { transform: translate3d(0, 0, 0); }
+      to { transform: translate3d(-120px, 70px, 0); }
+    }
+
+    .app {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 190px 1fr 290px;
+      gap: 18px;
+      width: min(1180px, calc(100vw - 36px));
+      height: min(720px, calc(100vh - 36px));
+      margin: 18px auto;
+      padding: 18px;
+      border: 1px solid rgba(106, 218, 255, .32);
+      border-radius: 28px;
+      background: linear-gradient(145deg, rgba(8, 17, 38, .82), rgba(5, 8, 22, .65));
+      box-shadow: 0 0 45px rgba(48, 177, 255, .22), inset 0 0 60px rgba(90, 160, 255, .08);
+      backdrop-filter: blur(14px);
+    }
+
+    .panel {
+      border: 1px solid rgba(113, 218, 255, .28);
+      border-radius: 22px;
+      background: var(--panel);
+      box-shadow: inset 0 0 36px rgba(95, 175, 255, .09), 0 18px 45px rgba(0,0,0,.25);
+    }
+
+    .left-panel,
+    .right-panel { padding: 18px; }
+
+    h1, h2, p { margin: 0; }
+    h1 { font-size: 30px; letter-spacing: .08em; text-transform: uppercase; }
+    h2 { color: var(--cyan); font-size: 16px; letter-spacing: .08em; text-transform: uppercase; }
+    .muted { color: var(--muted); font-size: 13px; line-height: 1.45; }
+
+    .ship-list { display: grid; gap: 12px; margin-top: 22px; }
+    .ship-type {
+      display: grid;
+      grid-template-columns: 40px 1fr;
+      gap: 10px;
+      align-items: center;
+      padding: 10px;
+      border: 1px solid rgba(85, 221, 255, .18);
+      border-radius: 16px;
+      background: rgba(35, 68, 115, .22);
+    }
+    .ship-type.active { border-color: var(--cyan); box-shadow: 0 0 22px rgba(85,221,255,.24); }
+    .icon { width: 34px; height: 34px; filter: drop-shadow(0 0 8px rgba(85,221,255,.5)); }
+
+    .stage {
+      position: relative;
+      overflow: hidden;
+      border-radius: 26px;
+      background:
+        linear-gradient(rgba(85,221,255,.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(85,221,255,.08) 1px, transparent 1px),
+        radial-gradient(circle at 50% 45%, rgba(85,221,255,.18), transparent 38%),
+        rgba(3, 10, 24, .72);
+      background-size: 38px 38px, 38px 38px, auto, auto;
+    }
+
+    .topbar {
+      position: absolute;
+      top: 18px;
+      left: 20px;
+      right: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 5;
+    }
+
+    .chip {
+      padding: 8px 13px;
+      border: 1px solid rgba(85,221,255,.3);
+      border-radius: 999px;
+      background: rgba(9, 20, 42, .78);
+      color: var(--cyan);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .06em;
+    }
+
+    .hex-map {
+      --r: 44px;
+      --w: 76px;
+      --h: 88px;
+      --x-step: 76px;
+      --y-step: 66px;
+      --row-offset: 38px;
+      position: absolute;
+      left: 50%;
+      top: 52%;
+      width: 570px;
+      height: 520px;
+      transform: translate(-50%, -47%);
+    }
+
+    .hex {
+      position: absolute;
+      width: var(--w);
+      height: var(--h);
+      clip-path: polygon(50% 0, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
+      display: grid;
+      place-items: center;
+      border: none;
+      color: var(--text);
+      background: linear-gradient(145deg, rgba(83, 143, 211, .34), rgba(25, 61, 105, .3));
+      box-shadow: inset 0 0 25px rgba(116, 196, 255, .17), 0 0 18px rgba(85, 221, 255, .08);
+      cursor: pointer;
+      transition: transform .16s ease, filter .16s ease, background .16s ease;
+    }
+
+    .hex::before {
+      position: absolute;
+      inset: 5px;
+      content: "";
+      clip-path: inherit;
+      border: 1px solid rgba(180, 235, 255, .32);
+      background: radial-gradient(circle at 45% 35%, rgba(255,255,255,.18), transparent 34%);
+    }
+
+    .hex:hover,
+    .hex.reachable {
+      filter: drop-shadow(0 0 14px rgba(85,221,255,.7));
+      transform: translateY(-2px) scale(1.03);
+    }
+
+    .hex.reachable::before { border-color: var(--green); }
+    .hex.current { filter: drop-shadow(0 0 20px rgba(255, 200, 77, .75)); }
+    .hex.planet { background: linear-gradient(145deg, rgba(40, 155, 145, .45), rgba(20, 75, 83, .48)); }
+    .hex.asteroid { background: linear-gradient(145deg, rgba(160, 118, 82, .48), rgba(72, 56, 45, .5)); }
+    .hex.station { background: linear-gradient(145deg, rgba(92, 112, 200, .48), rgba(37, 46, 96, .5)); }
+    .hex.anomaly { background: linear-gradient(145deg, rgba(180, 90, 255, .38), rgba(63, 31, 94, .55)); }
+    .hex.center { background: linear-gradient(145deg, rgba(255, 201, 80, .55), rgba(95, 68, 24, .58)); }
+
+    .tile-icon { position: relative; z-index: 2; font-size: 28px; text-shadow: 0 0 15px currentColor; }
+
+    .player-ship {
+      position: absolute;
+      z-index: 4;
+      width: 72px;
+      height: 56px;
+      transform: translate(-50%, -50%);
+      transition: left .28s cubic-bezier(.2,.9,.2,1.1), top .28s cubic-bezier(.2,.9,.2,1.1);
+      filter: drop-shadow(0 0 18px rgba(85, 221, 255, .9));
+      pointer-events: none;
+    }
+
+    .right-panel { display: grid; grid-template-rows: auto auto 1fr; gap: 16px; }
+    .hangar {
+      min-height: 230px;
+      padding: 18px;
+      text-align: center;
+      border-radius: 22px;
+      background: radial-gradient(circle at 50% 45%, rgba(85,221,255,.23), transparent 46%), rgba(11, 20, 43, .74);
+    }
+    .hangar svg { width: 180px; height: 130px; margin-top: 12px; filter: drop-shadow(0 0 28px rgba(85,221,255,.5)); }
+    .pad { width: 150px; height: 16px; margin: -2px auto 0; border-radius: 50%; background: rgba(116, 246, 255, .65); box-shadow: 0 0 25px rgba(116,246,255,.85); }
+    .bars { display: grid; gap: 8px; }
+    .bar { height: 16px; overflow: hidden; border: 1px solid rgba(130,215,255,.28); border-radius: 999px; background: rgba(5,9,20,.72); }
+    .bar span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--cyan), var(--green)); }
+    .log { padding: 14px; font-size: 13px; color: var(--muted); line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <div class="stars"></div>
+  <main class="app">
+    <aside class="panel left-panel">
+      <h2>Классы</h2>
+      <p class="muted">Выбери соседний гекс кликом или двигайся WASD/стрелками.</p>
+      <div class="ship-list">
+        <div class="ship-type active"><svg class="icon" viewBox="0 0 64 64"><path fill="#55ddff" d="M32 5 52 52 32 42 12 52z"/><circle fill="#081226" cx="32" cy="29" r="8"/></svg><div><b>Explorer</b><p class="muted">манёвренный разведчик</p></div></div>
+        <div class="ship-type"><svg class="icon" viewBox="0 0 64 64"><path fill="#ffc84d" d="M32 4 56 38 43 58 32 47 21 58 8 38z"/></svg><div><b>Bomber</b><p class="muted">тяжёлый корпус</p></div></div>
+        <div class="ship-type"><svg class="icon" viewBox="0 0 64 64"><path fill="#68f0a8" d="M8 34 32 8l24 26-24 22z"/></svg><div><b>Courier</b><p class="muted">больше трюм</p></div></div>
+      </div>
+    </aside>
+
+    <section class="panel stage">
+      <div class="topbar">
+        <h1>Последний сектор</h1>
+        <div class="chip" id="position">A1</div>
+      </div>
+      <div id="hexMap" class="hex-map"></div>
+      <svg id="playerShip" class="player-ship" viewBox="0 0 120 86" aria-label="Корабль игрока">
+        <defs>
+          <linearGradient id="shipBody" x1="0" x2="1"><stop stop-color="#55ddff"/><stop offset="1" stop-color="#f4fbff"/></linearGradient>
+          <filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        <path d="M112 43 35 12 48 43 35 74Z" fill="url(#shipBody)" filter="url(#glow)"/>
+        <path d="M45 28 6 8 25 39Z" fill="#3568ff" opacity=".95"/>
+        <path d="M45 58 6 78 25 47Z" fill="#3568ff" opacity=".95"/>
+        <circle cx="67" cy="43" r="13" fill="#081226" stroke="#55ddff" stroke-width="5"/>
+        <path d="M35 34 12 43 35 52" fill="#ff8a35" opacity=".9"/>
+      </svg>
+    </section>
+
+    <aside class="panel right-panel">
+      <div class="hangar">
+        <h2>Hangar</h2>
+        <svg viewBox="0 0 180 130"><path d="M164 66 58 23 77 65 58 108Z" fill="#55ddff"/><path d="M72 45 20 25 48 61Z" fill="#3568ff"/><path d="M72 86 20 105 48 70Z" fill="#3568ff"/><circle cx="98" cy="66" r="18" fill="#081226" stroke="#ffc84d" stroke-width="6"/><path d="M58 55 22 66 58 77" fill="#ff8a35"/></svg>
+        <div class="pad"></div>
+      </div>
+      <div class="bars">
+        <div class="bar"><span style="width: 100%"></span></div>
+        <div class="bar"><span style="width: 70%; background: linear-gradient(90deg, #ffc84d, #ff5574)"></span></div>
+        <div class="bar"><span style="width: 45%; background: linear-gradient(90deg, #b771ff, #55ddff)"></span></div>
+      </div>
+      <div class="panel log" id="log">Бортовой журнал: корабль стоит в центре стартового гекса.</div>
+    </aside>
+  </main>
+
+  <script>
+    const BOARD_SIZE = 7;
+    const HEX_WIDTH = 76;
+    const HEX_HEIGHT = 88;
+    const X_STEP = 76;
+    const Y_STEP = 66;
+    const ROW_OFFSET = 38;
+    const MAP_PADDING = 48;
+    const tileTypes = ["base", "planet", "asteroid", "station", "anomaly", "empty", "center"];
+    const icons = { base: "⌂", planet: "◉", asteroid: "✹", station: "✚", anomaly: "◎", empty: "·", center: "✦" };
+
+    const state = { x: 0, y: 0 };
+    const map = document.getElementById("hexMap");
+    const ship = document.getElementById("playerShip");
+    const position = document.getElementById("position");
+    const log = document.getElementById("log");
+
+    function tileCenter(x, y) {
+      return {
+        x: MAP_PADDING + HEX_WIDTH / 2 + x * X_STEP + (y % 2) * ROW_OFFSET,
+        y: MAP_PADDING + HEX_HEIGHT / 2 + y * Y_STEP,
+      };
+    }
+
+    function tileKind(x, y) {
+      if (x === 0 && y === 0) return "base";
+      if (x === 3 && y === 3) return "center";
+      return tileTypes[(x * 3 + y * 5) % tileTypes.length];
+    }
+
+    function isAdjacent(x, y) {
+      return Math.abs(state.x - x) + Math.abs(state.y - y) === 1;
+    }
+
+    function moveTo(x, y) {
+      if (x < 0 || y < 0 || x >= BOARD_SIZE || y >= BOARD_SIZE || !isAdjacent(x, y)) return;
+      state.x = x;
+      state.y = y;
+      updateShip();
+      log.textContent = `Бортовой журнал: курс изменён, сектор ${String.fromCharCode(65 + y)}${x + 1}.`;
+    }
+
+    function updateShip() {
+      document.querySelectorAll(".hex").forEach((hex) => {
+        const x = Number(hex.dataset.x);
+        const y = Number(hex.dataset.y);
+        hex.classList.toggle("current", x === state.x && y === state.y);
+        hex.classList.toggle("reachable", isAdjacent(x, y));
+      });
+
+      const center = tileCenter(state.x, state.y);
+      ship.style.left = `${center.x}px`;
+      ship.style.top = `${center.y}px`;
+      position.textContent = `${String.fromCharCode(65 + state.y)}${state.x + 1}`;
+    }
+
+    function buildMap() {
+      for (let y = 0; y < BOARD_SIZE; y += 1) {
+        for (let x = 0; x < BOARD_SIZE; x += 1) {
+          const center = tileCenter(x, y);
+          const kind = tileKind(x, y);
+          const hex = document.createElement("button");
+          hex.type = "button";
+          hex.className = `hex ${kind}`;
+          hex.dataset.x = x;
+          hex.dataset.y = y;
+          hex.style.left = `${center.x - HEX_WIDTH / 2}px`;
+          hex.style.top = `${center.y - HEX_HEIGHT / 2}px`;
+          hex.innerHTML = `<span class="tile-icon">${icons[kind]}</span>`;
+          hex.addEventListener("click", () => moveTo(x, y));
+          map.appendChild(hex);
+        }
+      }
+      updateShip();
+    }
+
+    window.addEventListener("keydown", (event) => {
+      const key = event.key.toLowerCase();
+      const deltas = {
+        arrowup: [0, -1], w: [0, -1], ц: [0, -1],
+        arrowdown: [0, 1], s: [0, 1], ы: [0, 1],
+        arrowleft: [-1, 0], a: [-1, 0], ф: [-1, 0],
+        arrowright: [1, 0], d: [1, 0], в: [1, 0],
+      };
+      if (!deltas[key]) return;
+      event.preventDefault();
+      moveTo(state.x + deltas[key][0], state.y + deltas[key][1]);
+    });
+
+    buildMap();
+  </script>
+</body>
+</html>
